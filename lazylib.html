@@ -183,7 +183,7 @@ function main() {
                               <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">RootEffect</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
 <dd>
 
-<p>Load specified library <tt class="docutils literal"><span class="pre">name</span></tt> at runtime</p>
+<p>Load specified library <tt class="docutils literal"><span class="pre">name</span></tt> at runtime - used by <tt class="docutils literal"><span class="pre">{.lazylib.}</span></tt>, no need to directly call this proc.</p>
 <p><tt class="docutils literal"><span class="pre">name</span></tt> can be a library name, full path or pattern as supported by <tt class="docutils literal"><span class="pre">{.dynlib.}</span></tt></p>
 <p>If library is not found, raise <tt class="docutils literal"><span class="pre">LazyLibNotFound</span></tt> which can be caught and handled as required by app.</p>
 
@@ -195,7 +195,7 @@ function main() {
     <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">RootEffect</span><span class="Other">]</span></span><span class="Other">.}</span></span></pre></dt>
 <dd>
 
-<p>Load specified <tt class="docutils literal"><span class="pre">symName</span></tt> from library <tt class="docutils literal"><span class="pre">name</span></tt> at runtime</p>
+<p>Load specified <tt class="docutils literal"><span class="pre">symName</span></tt> from library <tt class="docutils literal"><span class="pre">name</span></tt> at runtime - used by <tt class="docutils literal"><span class="pre">{.lazylib.}</span></tt>, no need to directly call this proc.</p>
 <p><tt class="docutils literal"><span class="pre">name</span></tt> can be a library name, full path or pattern as supported by <tt class="docutils literal"><span class="pre">{.dynlib.}</span></tt>. <tt class="docutils literal"><span class="pre">lazyLoadSym()</span></tt> will load the lib if not already done with <tt class="docutils literal"><span class="pre">lazyLoadLib()</span></tt>.</p>
 <p><tt class="docutils literal"><span class="pre">symName</span></tt> is the name of the symbol to load.</p>
 <p>If library is not found, raise <tt class="docutils literal"><span class="pre">LazyLibNotFound</span></tt> which can be caught and handled as required by app. If symbol is not found, raise <tt class="docutils literal"><span class="pre">LazySymNotFound</span></tt>.</p>
@@ -236,7 +236,7 @@ function main() {
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br/>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2020-07-05 20:56:12 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2020-07-05 21:00:03 UTC</small>
       </div>
     </div>
   </div>
