@@ -1,0 +1,6 @@
+LazyLibNotFound	lazylib.html#LazyLibNotFound	lazylib: LazyLibNotFound	
+LazySymNotFound	lazylib.html#LazySymNotFound	lazylib: LazySymNotFound	
+lazyLibs	lazylib.html#lazyLibs	lazylib: lazyLibs	
+lazyLoadLib	lazylib.html#lazyLoadLib,string	lazylib: lazyLoadLib(name: string)	
+lazySymAddr	lazylib.html#lazySymAddr,string,string	lazylib: lazySymAddr(name, symName: string): pointer	
+lazylib	lazylib.html#lazylib.m,untyped,untyped	lazylib: lazylib(name, procDef: untyped): untyped	
