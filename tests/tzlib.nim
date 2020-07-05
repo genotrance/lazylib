@@ -13,10 +13,9 @@ proc Version*(): cstring {.lazylib: libz, cdecl, importc: "zlib$1".}
 
 proc Random*(): cstring {.lazylib: libz, cdecl, importc: "zlib$1".}
 
-echo zlibVersion()
-echo Version()
-
 try:
+  echo zlibVersion()
+  echo Version()
   echo Random()
 except LazyLibNotFound:
   echo "No zlib found"
