@@ -7,7 +7,7 @@ elif defined(macosx):
 else:
   const libz = "libz.so.1"
 
-proc zlibVersion*(): cstring {.lazylib: libz, cdecl.}
+proc zlibVersion*(): cstring {.lazylib: libz, cdecl, importc.}
 
 proc Version*(): cstring {.lazylib: libz, cdecl, importc: "zlib$1".}
 
@@ -18,5 +18,7 @@ echo Version()
 
 try:
   echo Random()
-except LazySymbolNotFound:
-  echo "Caught it"
+except LazyLibNotFound:
+  echo "No zlib found"
+except LazySymNotFound:
+  echo "Random() should fail"

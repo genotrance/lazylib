@@ -11,6 +11,8 @@ In combination with tools like [nimterop](https://github.com/nimterop/nimterop) 
 
 # Usage
 
+Module documentation can be found [here](https://genotrance.github.io/lazylib/lazylib.html).
+
  Simply use `{.lazylib.}` in place of `{.dynlib.}` in wrappers and it should work. Specify calling convention like `{.cdecl.}` per usual as well as `{.importc.}` if there's a need to modify or shorten the C name.
 
 ```nim

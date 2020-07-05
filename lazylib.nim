@@ -1,19 +1,28 @@
 import dynlib, macros, strutils, tables
-export dynlib, strutils, tables
 
 type
+  # Sym name to pointer
+  SymTable = TableRef[string, pointer]
+
+  # Global to cache all loaded library handles and symbol pointers
   Lazylibs = object
+    # Lib name to handle
     libHandle*: TableRef[string, LibHandle]
 
-  LazyException = CatchableError
+    # Lib name to sym table
+    symTable*: TableRef[string, SymTable]
 
-  LazyLibNotFound* = LazyException
+  LazyException = object of CatchableError
 
-  LazySymbolNotFound* = LazyException
+  LazyLibNotFound* = object of LazyException
 
+  LazySymNotFound* = object of LazyException
+
+# Initialize cache on startup
 var
   lazyLibs* = new(Lazylibs)
 lazyLibs.libHandle = newTable[string, LibHandle]()
+lazyLibs.symTable = newTable[string, SymTable]()
 
 # TODO:
 # - {.push cdecl, importc, lazylib.} don't work
@@ -57,6 +66,9 @@ proc getProcInfo(node: NimNode):
             "fastcall", "syscall", "noconv"]:
             result.convention = ident
             result.convIdx = i
+          elif ident == "importc":
+            # Empty `{.importc.}`
+            result.impIdx = i
         else:
           discard
       of nnkStrLit:
@@ -83,28 +95,85 @@ proc getProcInfo(node: NimNode):
       else:
         discard
 
+proc lazyLoadLib*(name: string) =
+  ## Load specified library `name` at runtime - used by `{.lazylib.}`, no need
+  ## to directly call this proc.
+  ##
+  ## `name` can be a library name, full path or pattern as supported
+  ## by `{.dynlib.}`
+  ##
+  ## If library is not found, raise `LazyLibNotFound` which can be
+  ## caught and handled as required by app.
+  doAssert name.len != 0, "\nLibrary name/path/pattern expected for `lazyLoadLib()`"
+  if not lazyLibs.libHandle.hasKey(name):
+    # Load library only once
+    let
+      handle = loadLibPattern(name)
+    if handle.isNil:
+      raise newException(LazyLibNotFound, "Could not load `" & name & "`")
+    lazyLibs.libHandle[name] = handle
+    lazyLibs.symTable[name] = new(SymTable)
+
+proc lazySymAddr*(name, symName: string): pointer =
+  ## Load specified `symName` from library `name` at runtime - used by
+  ## `{.lazylib.}`, no need to directly call this proc.
+  ##
+  ## `name` can be a library name, full path or pattern as supported
+  ## by `{.dynlib.}`. `lazyLoadSym()` will load the lib if not already
+  ## done with `lazyLoadLib()`.
+  ##
+  ## `symName` is the name of the symbol to load.
+  ##
+  ## If library is not found, raise `LazyLibNotFound` which can be
+  ## caught and handled as required by app. If symbol is not found,
+  ## raise `LazySymNotFound`.
+  ##
+  ## Returns pointer to loaded symbol.
+  if not lazyLibs.libHandle.hasKey(name):
+    lazyLoadLib(name)
+
+  doAssert symName.len != 0, "\nSymbol name expected for `lazySymAddr()`"
+  if not lazyLibs.symTable[name].hasKey(symName):
+    # Load symbol only once
+    let
+      lib = lazyLibs.libHandle[name]
+    result = lib.symAddr(symName)
+    if result.isNil:
+      raise newException(LazySymNotFound, "Could not load symbol `" & symName & "()`")
+    lazyLibs.symTable[name][symName] = result
+  else:
+    result = lazyLibs.symTable[name][symName]
+
 macro lazylib*(name, procDef: untyped): untyped =
+  ## Pragma to load C/C++ libraries and symbols at runtime
+  ##
+  ## Drop-in substitute for `{.dynlib.}`, difference being that the library
+  ## and symbol are loaded on use rather than at app startup. This allows the
+  ## developer to handle error conditions like a missing library or symbol
+  ## gracefully.
+  ##
+  ## Raises `LazyLibNotFound` if library is not found and `LazySymNotFound` if
+  ## symbol is not found in the loaded library.
+  ##
+  ## Specify calling convention like `{.cdecl.}` per usual as well as
+  ## `{.importc.}` if there's a need to modify or shorten the C name.
+  runnableExamples:
+    const
+      lib = "libz.so"
+
+    proc Version*(): cstring {.lazylib: lib, cdecl, importc: "zlib$1".}
+
+    echo Version()
+
   # Basic checks
   doAssert procDef.kind == nnkProcDef, "\n{.lazylib.} is to be used with procs"
 
-  # Load the library at runtime
   result = newNimNode(nnkStmtList)
-  result.add quote do:
-    doAssert `name`.len != 0, "\n{.lazylib.} library name/path expected"
-    if not lazyLibs.libHandle.hasKey(`name`):
-      # Only one time
-      let
-        handle = loadLibPattern(`name`)
-      if handle.isNil:
-        raise newException(LazyLibNotFound, "Could not load " & `name`)
-      lazyLibs.libHandle[`name`] = handle
 
   # Get proc details
   let
-    (procName, procImpC, procConv, impIdx, convIdx) = procDef.getProcInfo()
     procImpl = newNimNode(nnkStmtList)
-    libIdent = newIdentNode("lib")
-    symIdent = newIdentNode("sym")
+    (procName, procImpC, procConv, impIdx, convIdx) = procDef.getProcInfo()
 
     # Final symbol name
     symName =
@@ -126,20 +195,17 @@ macro lazylib*(name, procDef: untyped): untyped =
       else:
         procConv
 
-  # Add implementation to load proc and call
-  procImpl.add quote do:
-    if not lazyLibs.libHandle.hasKey(`name`):
-      raise newException(LazyLibNotFound, `name` & "is not loaded")
+    symIdent = newIdentNode("sym")
 
-    let
-      `libIdent` = lazyLibs.libHandle[`name`]
-      `symIdent` = `libIdent`.symAddr(`symName`)
-    if `symIdent`.isNil:
-      raise newException(LazySymbolNotFound, "Could not load symbol `" & `symName` & "()`")
+  # Add proc implementation to load lib and symbol
+  procImpl.add quote do:
+    let `symIdent` = lazySymAddr(`name`, `symName`)
 
   # Proc signature - not able to add {.convention.} pragma via `quote do:`
   let
-    # symCall = cast[signature](sym)
+    # `cast[signature](sym)`
+    #
+    # `signature` = `proc (params: types): return {.convention.}`
     signature = "proc " & (block:
       if procDef.len > 3 and procDef[3].kind == nnkFormalParams:
         $procDef[3].repr
@@ -147,30 +213,28 @@ macro lazylib*(name, procDef: untyped): untyped =
         "()"
     ) & " {." & convention & ".}"
 
-    # symCall(params)
+    # Only `(param: types)` portion for calling `sym` once cast
     paramTypes =
       if procDef.len > 3 and procDef[3].kind == nnkFormalParams and procDef[3].len > 1:
         ($procDef[3][1 .. ^1].repr).strip(chars = {'[', ']'})
       else:
         ""
 
-  # Strip out param types
+  # Strip out `types` from `(param: types)` - not needed for calling procs
   var
     params: seq[string]
   if paramTypes.len != 0:
     for param in paramTypes.split(seps = {';', ','}):
       params.add param.split(':')[0]
 
-  # Cast sym to symCall and invoke with params
-  procImpl.add parseStmt("""let
-  symCall = cast[$1](sym)
-symCall($2)""" % [signature, params.join(", ")]
-  )
+  # Cast `sym` to `signature` and invoke with `params`
+  procImpl.add parseStmt("cast[$1](sym)($2)" % [signature, params.join(", ")])
 
-  # Add implementation to definition
+  # Replace any existing proc implementation
   procDef[^1] = procImpl
 
-  # Remove {.importc.} and {.convention.}
+  # Remove {.importc.} and {.convention.} since Nim does not need to
+  # load this proc using FFI
   if procDef.len > 4:
     if impIdx != -1 or convIdx != -1:
       # Remove backwards
