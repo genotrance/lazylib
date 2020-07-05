@@ -1,13 +1,17 @@
 import lazylib
 
-const
-  lib = "libz.so"
+when defined(windows):
+  const libz = "zlib1.dll"
+elif defined(macosx):
+  const libz = "libz.dylib"
+else:
+  const libz = "libz.so.1"
 
-proc zlibVersion*(): cstring {.lazylib: "libz.so", cdecl.}
+proc zlibVersion*(): cstring {.lazylib: libz, cdecl.}
 
-proc Version*(): cstring {.lazylib: lib, cdecl, importc: "zlib$1".}
+proc Version*(): cstring {.lazylib: libz, cdecl, importc: "zlib$1".}
 
-proc Random*(): cstring {.lazylib: lib, cdecl, importc: "zlib$1".}
+proc Random*(): cstring {.lazylib: libz, cdecl, importc: "zlib$1".}
 
 echo zlibVersion()
 echo Version()
