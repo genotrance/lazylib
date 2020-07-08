@@ -9,7 +9,7 @@ else:
 
 proc zlibVersion*(): cstring {.lazylib: libz, cdecl, importc.}
 
-proc Version*(): cstring {.lazylib: libz, cdecl, importc: "zlib$1".}
+proc Version*(): cstring {.lazylib: "libz.so(|.1)", cdecl, importc: "zlib$1".}
 
 proc Random*(): cstring {.lazylib: libz, cdecl, importc: "zlib$1".}
 

@@ -101,7 +101,7 @@ proc getProcInfo(node: NimNode):
       else:
         discard
 
-proc lazyLoadLib(libName: string) =
+proc lazyLoadLib(libName: string): string =
   # Load specified library `libName` at runtime - used by `{.lazylib.}`
   #
   # `libName` can be a library name, full path or pattern as supported
@@ -109,15 +109,28 @@ proc lazyLoadLib(libName: string) =
   #
   # If library is not found, raise `LazyLibNotFound` which can be
   # caught and handled as required by app.
+  #
+  # Return the actual lib candidate loaded for use with `lazyLoadSym()`.
   doAssert libName.len != 0, "\nLibrary name/path/pattern expected for `lazyLoadLib()`"
-  if not lazyLibs.libHandle.hasKey(libName):
-    # Load library only once
+
+  # Check if lib already loaded
+  var
+    candidates: seq[string]
+  libCandidates(libName, candidates)
+  for candidate in candidates:
+    if lazyLibs.libHandle.hasKey(candidate):
+      return candidate
+
+  # Not already loaded - try candidates
+  for candidate in candidates:
     let
-      handle = loadLibPattern(libName)
-    if handle.isNil:
-      raise newException(LazyLibNotFound, "Could not load `" & libName & "`")
-    lazyLibs.libHandle[libName] = handle
-    lazyLibs.symTable.add(libName, SymTable())
+      handle = loadLib(candidate)
+    if not handle.isNil:
+      lazyLibs.libHandle[candidate] = handle
+      lazyLibs.symTable.add(candidate, SymTable())
+      return candidate
+
+  raise newException(LazyLibNotFound, "Could not load `" & libName & "`")
 
 proc lazySymAddr(libName, symName: string): pointer =
   # Load specified `symName` from library `libName` at runtime - used by
@@ -134,8 +147,8 @@ proc lazySymAddr(libName, symName: string): pointer =
   # raise `LazySymNotFound`.
   #
   # Returns pointer to loaded symbol.
-  if not lazyLibs.libHandle.hasKey(libName):
-    lazyLoadLib(libName)
+  let
+    libName = lazyLoadLib(libName)
 
   doAssert symName.len != 0, "\nSymbol name expected for `lazySymAddr()`"
   if not lazyLibs.symTable[libName].hasKey(symName):
