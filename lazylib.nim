@@ -2,23 +2,23 @@ import dynlib, macros, strutils, tables
 
 type
   # Sym name to pointer
-  SymTable = TableRef[string, pointer]
+  SymTable = Table[string, pointer]
 
   # Nim proc pointer to libName and symName
-  ProcInfo = ref object
+  ProcInfo = object
     libName: string
     symName: string
 
   # Global to cache all loaded library handles and symbol pointers
   LazyLibs = object
     # Lib name to handle
-    libHandle*: TableRef[string, LibHandle]
+    libHandle*: Table[string, LibHandle]
 
     # Lib name to sym table
-    symTable*: TableRef[string, SymTable]
+    symTable*: Table[string, SymTable]
 
     # Nim proc to sym name
-    procTable*: TableRef[pointer, ProcInfo]
+    procTable*: Table[pointer, ProcInfo]
 
   LazyException = object of CatchableError
 
@@ -28,10 +28,7 @@ type
 
 # Initialize cache on startup
 var
-  lazyLibs* = new(LazyLibs)
-lazyLibs.libHandle = newTable[string, LibHandle]()
-lazyLibs.symTable = newTable[string, SymTable]()
-lazyLibs.procTable = newTable[pointer, ProcInfo]()
+  lazyLibs*: LazyLibs
 
 # TODO:
 # - {.push cdecl, importc, lazylib.} don't work
@@ -121,7 +118,7 @@ proc lazyLoadLib*(libName: string) =
     if handle.isNil:
       raise newException(LazyLibNotFound, "Could not load `" & libName & "`")
     lazyLibs.libHandle[libName] = handle
-    lazyLibs.symTable[libName] = new(SymTable)
+    lazyLibs.symTable.add(libName, SymTable())
 
 proc lazySymAddr*(libName, symName: string): pointer =
   ## Load specified `symName` from library `libName` at runtime - used by
@@ -155,9 +152,7 @@ proc lazySymAddr*(libName, symName: string): pointer =
 
 proc lazyRegister*(libName, symName: string, procPtr: pointer) =
   ## Register a proc as lazy - no need to directly call this proc.
-  lazyLibs.procTable[procPtr] = new(ProcInfo)
-  lazyLibs.procTable[procPtr].libName = libName
-  lazyLibs.procTable[procPtr].symName = symName
+  lazyLibs.procTable.add(procPtr, ProcInfo(libName: libName, symName: symName))
 
 macro lazylib*(libName, procDef: untyped): untyped =
   ## Pragma to load C/C++ libraries and symbols at runtime
