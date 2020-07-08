@@ -23,7 +23,10 @@ const
 
 proc Version*(): cstring {.lazylib: lib, cdecl, importc: "zlib$1".}
 
-echo Version()
+if Version.isLoaded():
+  echo Version()
+else:
+  echo "Zlib Version() unavailable, workaround"
 ```
 
 # Limitations

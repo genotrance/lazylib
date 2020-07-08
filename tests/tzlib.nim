@@ -21,3 +21,8 @@ except LazyLibNotFound:
   echo "No zlib found"
 except LazySymNotFound:
   echo "Random() should fail"
+
+if zlibVersion.isLoaded():
+  echo "Cool"
+
+doAssert not Random.isLoaded()
