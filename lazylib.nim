@@ -12,15 +12,15 @@ type
   # Global to cache all loaded library handles and symbol pointers
   LazyLibs = object
     # Lib name to handle
-    libHandle*: Table[string, LibHandle]
+    libHandle: Table[string, LibHandle]
 
     # Lib name to sym table
-    symTable*: Table[string, SymTable]
+    symTable: Table[string, SymTable]
 
     # Nim proc to sym name
-    procTable*: Table[pointer, ProcInfo]
+    procTable: Table[pointer, ProcInfo]
 
-  LazyException = object of CatchableError
+  LazyException* = object of CatchableError
 
   LazyLibNotFound* = object of LazyException
 
@@ -28,7 +28,7 @@ type
 
 # Initialize cache on startup
 var
-  lazyLibs*: LazyLibs
+  lazyLibs: LazyLibs
 
 # TODO:
 # - {.push cdecl, importc, lazylib.} don't work
@@ -101,15 +101,14 @@ proc getProcInfo(node: NimNode):
       else:
         discard
 
-proc lazyLoadLib*(libName: string) =
-  ## Load specified library `libName` at runtime - used by `{.lazylib.}`, no need
-  ## to directly call this proc.
-  ##
-  ## `libName` can be a library name, full path or pattern as supported
-  ## by `{.dynlib.}`
-  ##
-  ## If library is not found, raise `LazyLibNotFound` which can be
-  ## caught and handled as required by app.
+proc lazyLoadLib(libName: string) =
+  # Load specified library `libName` at runtime - used by `{.lazylib.}`
+  #
+  # `libName` can be a library name, full path or pattern as supported
+  # by `{.dynlib.}`
+  #
+  # If library is not found, raise `LazyLibNotFound` which can be
+  # caught and handled as required by app.
   doAssert libName.len != 0, "\nLibrary name/path/pattern expected for `lazyLoadLib()`"
   if not lazyLibs.libHandle.hasKey(libName):
     # Load library only once
@@ -120,21 +119,21 @@ proc lazyLoadLib*(libName: string) =
     lazyLibs.libHandle[libName] = handle
     lazyLibs.symTable.add(libName, SymTable())
 
-proc lazySymAddr*(libName, symName: string): pointer =
-  ## Load specified `symName` from library `libName` at runtime - used by
-  ## `{.lazylib.}`, no need to directly call this proc.
-  ##
-  ## `libName` can be a library name, full path or pattern as supported
-  ## by `{.dynlib.}`. `lazyLoadSym()` will load the lib if not already
-  ## done with `lazyLoadLib()`.
-  ##
-  ## `symName` is the name of the symbol to load.
-  ##
-  ## If library is not found, raise `LazyLibNotFound` which can be
-  ## caught and handled as required by app. If symbol is not found,
-  ## raise `LazySymNotFound`.
-  ##
-  ## Returns pointer to loaded symbol.
+proc lazySymAddr(libName, symName: string): pointer =
+  # Load specified `symName` from library `libName` at runtime - used by
+  # `{.lazylib.}`, no need to directly call this proc.
+  #
+  # `libName` can be a library name, full path or pattern as supported
+  # by `{.dynlib.}`. `lazyLoadSym()` will load the lib if not already
+  # done with `lazyLoadLib()`.
+  #
+  # `symName` is the name of the symbol to load.
+  #
+  # If library is not found, raise `LazyLibNotFound` which can be
+  # caught and handled as required by app. If symbol is not found,
+  # raise `LazySymNotFound`.
+  #
+  # Returns pointer to loaded symbol.
   if not lazyLibs.libHandle.hasKey(libName):
     lazyLoadLib(libName)
 
@@ -150,8 +149,8 @@ proc lazySymAddr*(libName, symName: string): pointer =
   else:
     result = lazyLibs.symTable[libName][symName]
 
-proc lazyRegister*(libName, symName: string, procPtr: pointer) =
-  ## Register a proc as lazy - no need to directly call this proc.
+proc lazyRegister(libName, symName: string, procPtr: pointer) =
+  # Register a proc as lazy to enable `isLoaded()` runtime check
   lazyLibs.procTable.add(procPtr, ProcInfo(libName: libName, symName: symName))
 
 macro lazylib*(libName, procDef: untyped): untyped =
